@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedGlance Analytics Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-heartbeat"></i>
+                    <span class="logo-text">MedGlance</span>
+                </div>
+                <button class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul class="nav-list">
+                    <li class="nav-item active" data-section="overview">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-chart-pie"></i>
+                            <span>Overview</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-section="analytics">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Analytics</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-section="users">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-users"></i>
+                            <span>Users</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-section="queries">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-search"></i>
+                            <span>Query Insights</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-section="medical">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-pills"></i>
+                            <span>Medical Data</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="dark-mode-toggle" class="btn-dark-mode" onclick="toggleDarkMode()">
+                    <i class="fas fa-moon"></i>
+                    <span>Dark Mode</span>
+                </button>
+                <div class="last-updated">
+                    <small>Last updated: <span id="last-updated">-</span></small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="header-bar">
+                <div class="header-left">
+                    <h1 class="page-title">Analytics Dashboard</h1>
+                    <div class="breadcrumb">
+                        <span class="breadcrumb-item active">Overview</span>
+                    </div>
+                </div>
+                
+                <div class="header-right">
+                    <div class="header-stats">
+                        <div class="header-stat">
+                            <div class="stat-value" id="total-users">-</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                        <div class="header-stat">
+                            <div class="stat-value" id="total-queries">-</div>
+                            <div class="stat-label">Total Queries</div>
+                        </div>
+                    </div>
+                    
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="exportDashboard()">
+                            <i class="fas fa-download"></i>
+                            Export
+                        </button>
+                        <button id="global-refresh-btn" class="btn btn-primary" onclick="refreshDashboard(false)">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Sections -->
+            <div class="content-wrapper">
+                
+                <!-- Overview Section -->
+                <section id="overview-section" class="content-section active">
+                    <!-- Primary KPIs - Top Left Quadrant -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card primary">
+                            <div class="kpi-icon">
+                                <i class="fas fa-user-check"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <div class="kpi-value" id="weekly-active-users">-</div>
+                                <div class="kpi-label">Weekly Active Users</div>
+                                <div class="kpi-trend positive">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span id="weekly-trend">-</span>
+                                </div>
+                            </div>
+                            <div class="kpi-actions">
+                                <button class="btn-icon" onclick="refreshWeeklyUsers()" title="Refresh">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <div class="kpi-value" id="avg-queries-per-user">-</div>
+                                <div class="kpi-label">Avg Queries/User</div>
+                                <div class="kpi-trend">
+                                    <i class="fas fa-chart-line"></i>
+                                    <span id="query-trend">-</span>
+                                </div>
+                            </div>
+                            <div class="kpi-actions">
+                                <button class="btn-icon" onclick="refreshUserQueries()" title="Refresh">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-icon">
+                                <i class="fas fa-pills"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <div class="kpi-value" id="medicine-searches">-</div>
+                                <div class="kpi-label">Medicine Searches</div>
+                                <div class="kpi-trend">
+                                    <i class="fas fa-search"></i>
+                                    <span id="medicine-trend">-</span>
+                                </div>
+                            </div>
+                            <div class="kpi-actions">
+                                <button class="btn-icon" onclick="refreshMedicineSearch()" title="Refresh">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card">
+                            <div class="kpi-icon">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <div class="kpi-value" id="avg-response-time">-</div>
+                                <div class="kpi-label">Avg Response Time</div>
+                                <div class="kpi-trend positive">
+                                    <i class="fas fa-tachometer-alt"></i>
+                                    <span id="response-trend">-</span>
+                                </div>
+                            </div>
+                            <div class="kpi-actions">
+                                <button class="btn-icon" onclick="refreshResponseTimes()" title="Refresh">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid -->
+                    <div class="charts-grid">
+                        <div class="chart-card featured">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <i class="fas fa-chart-area"></i>
+                                    <span>Daily User Engagement</span>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn-icon" onclick="refreshChart('dailyEngagement')" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button class="btn-icon" onclick="exportChart('dailyEngagement')" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="dailyEngagementChart"></canvas>
+                            </div>
+                            <div class="chart-insights">
+                                <div class="insight">
+                                    <span class="insight-value" id="total-queries-30">-</span>
+                                    <span class="insight-label">Total Queries (30d)</span>
+                                </div>
+                                <div class="insight">
+                                    <span class="insight-value" id="avg-daily-queries">-</span>
+                                    <span class="insight-label">Avg Daily Queries</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Peak Usage Hours</span>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn-icon" onclick="refreshChart('peakHours')" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="peakHoursChart"></canvas>
+                            </div>
+                            <div class="chart-insights">
+                                <div class="insight">
+                                    <span class="insight-value" id="peak-hour">-</span>
+                                    <span class="insight-label">Peak Hour</span>
+                                </div>
+                                <div class="insight">
+                                    <span class="insight-value" id="peak-hour-count">-</span>
+                                    <span class="insight-label">Peak Queries</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <i class="fas fa-users"></i>
+                                    <span>User Demographics</span>
+                                </div>
+                                <div class="card-actions">
+                                    <select id="demographicType" onchange="updateDemographicsChart()" class="select-control">
+                                        <option value="age">Age Distribution</option>
+                                        <option value="verification">Email Verification</option>
+                                        <option value="oauth">OAuth Providers</option>
+                                        <option value="profile">Profile Completion</option>
+                                    </select>
+                                    <button class="btn-icon" onclick="refreshChart('demographics')" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="demographicsChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <i class="fas fa-tags"></i>
+                                    <span>Medical Content Categories</span>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn-icon" onclick="refreshChart('contentCategories')" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="contentCategoriesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Age Analysis Full Width -->
+                    <div class="chart-card full-width">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-user-friends"></i>
+                                <span>Queries by Age Category Analysis</span>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn-icon" onclick="refreshChart('ageCategoryQueries')" title="Refresh">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chart-container large">
+                            <canvas id="ageCategoryQueriesChart"></canvas>
+                        </div>
+                        <div class="chart-insights">
+                            <div class="insight">
+                                <span class="insight-value" id="most-active-age-group">-</span>
+                                <span class="insight-label">Most Active Age Group</span>
+                            </div>
+                            <div class="insight">
+                                <span class="insight-value" id="queries-with-age-data">-</span>
+                                <span class="insight-label">Queries with Age Data</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Analytics Section -->
+                <section id="analytics-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Advanced Analytics</h2>
+                        <p>Deep dive into system performance and user behavior patterns</p>
+                    </div>
+
+                    <div class="analytics-grid">
+                        <div class="data-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <i class="fas fa-comments"></i>
+                                    <span>Session Analysis</span>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn-icon" onclick="refreshSessionData()" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button class="btn-icon" onclick="exportSessionData()" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="metrics-grid">
+                                <div class="metric-item">
+                                    <div class="metric-value" id="total-sessions">-</div>
+                                    <div class="metric-label">Total Sessions</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-value" id="active-sessions">-</div>
+                                    <div class="metric-label">Active Sessions</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-value" id="avg-session-length">-</div>
+                                    <div class="metric-label">Avg Session Length</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-value" id="session-engagement-rate">-</div>
+                                    <div class="metric-label">Engagement Rate</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="data-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <i class="fas fa-user-friends"></i>
+                                    <span>User Retention</span>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn-icon" onclick="refreshRetentionData()" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button class="btn-icon" onclick="exportRetentionData()" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="retention-grid">
+                                <div class="retention-item new">
+                                    <div class="retention-value" id="new-users-7d">-</div>
+                                    <div class="retention-label">New Users (7d)</div>
+                                </div>
+                                <div class="retention-item new">
+                                    <div class="retention-value" id="new-users-30d">-</div>
+                                    <div class="retention-label">New Users (30d)</div>
+                                </div>
+                                <div class="retention-item returning">
+                                    <div class="retention-value" id="returning-users-7d">-</div>
+                                    <div class="retention-label">Returning (7d)</div>
+                                </div>
+                                <div class="retention-item returning">
+                                    <div class="retention-value" id="returning-users-30d">-</div>
+                                    <div class="retention-label">Returning (30d)</div>
+                                </div>
+                                <div class="retention-item inactive">
+                                    <div class="retention-value" id="inactive-users">-</div>
+                                    <div class="retention-label">Inactive Users</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Users Section -->
+                <section id="users-section" class="content-section">
+                    <div class="section-header">
+                        <h2>User Management</h2>
+                        <p>Monitor and analyze user activity and engagement</p>
+                    </div>
+
+                    <div class="tables-container">
+                        <div class="table-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <i class="fas fa-user-clock"></i>
+                                    <span>Weekly Active Users</span>
+                                </div>
+                                <div class="table-controls">
+                                    <div class="search-box">
+                                        <i class="fas fa-search"></i>
+                                        <input type="text" id="weeklyUsersSearch" placeholder="Search users..." 
+                                               onkeyup="filterTable('weeklyUsersTable', this.value)">
+                                    </div>
+                                    <button class="btn-icon" onclick="refreshWeeklyUsersTable()" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button class="btn-icon" onclick="exportTable('weeklyUsersTable', 'weekly_active_users')" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="table-wrapper">
+                                <table id="weeklyUsersTable" class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>User ID</th>
+                                            <th>Display Name</th>
+                                            <th>Last Login</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="weeklyUsersTableBody">
+                                        <tr><td colspan="4" class="loading">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="table-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <i class="fas fa-chart-bar"></i>
+                                    <span>User Query Statistics</span>
+                                </div>
+                                <div class="table-controls">
+                                    <select id="querySortBy" onchange="sortUserQueries(this.value)" class="select-control">
+                                        <option value="queries_desc">Queries (High to Low)</option>
+                                        <option value="queries_asc">Queries (Low to High)</option>
+                                        <option value="name_asc">Name (A-Z)</option>
+                                        <option value="login_desc">Last Login (Recent)</option>
+                                    </select>
+                                    <button class="btn-icon" onclick="refreshUserQueriesTable()" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button class="btn-icon" onclick="exportTable('userQueriesTable', 'user_query_stats')" title="Export">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="table-wrapper">
+                                <table id="userQueriesTable" class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>User ID</th>
+                                            <th>Display Name</th>
+                                            <th>Total Queries</th>
+                                            <th>Last Login</th>
+                                            <th>Activity Level</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="userQueriesTableBody">
+                                        <tr><td colspan="5" class="loading">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Queries Section -->
+                <section id="queries-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Query Insights</h2>
+                        <p>Analyze user queries and interaction patterns</p>
+                    </div>
+
+                    <!-- Natural Language Query Interface -->
+                    <div class="query-interface-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-robot"></i>
+                                <span>Natural Language Database Query</span>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn-secondary" onclick="showDatabaseStructure()">
+                                    <i class="fas fa-database"></i>
+                                    DB Structure
+                                </button>
+                                <button class="btn-secondary" onclick="showSampleQueriesModal()">
+                                    <i class="fas fa-lightbulb"></i>
+                                    Sample Queries
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="query-interface">
+                            <div class="query-input-panel">
+                                <div class="input-group">
+                                    <textarea id="naturalQueryInput" 
+                                             placeholder="Ask a question about your medical bot database in natural language...&#10;&#10;Examples:&#10;- Show me the top 10 most active users&#10;- How many users registered last month?&#10;- What are the most common symptoms mentioned?"
+                                             rows="4"></textarea>
+                                    <button id="executeQueryBtn" class="btn btn-primary" onclick="executeNaturalQuery()">
+                                        <i class="fas fa-play"></i>
+                                        Execute Query
+                                    </button>
+                                </div>
+                                
+                                <div class="query-suggestions" id="querySuggestions">
+                                    <!-- Sample queries will be loaded here -->
+                                </div>
+                                
+                                <div class="query-actions-bar">
+                                    <button class="btn btn-outline" onclick="clearAllQueryResults()">
+                                        <i class="fas fa-trash"></i>
+                                        Clear All Results
+                                    </button>
+                                    <span class="query-info-text">Results will appear below each query</span>
+                                </div>
+                            </div>
+                            <!-- Query results will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Medical Section -->
+                <section id="medical-section" class="content-section">
+                    <div class="section-header">
+                        <h2>Medical Data Analysis</h2>
+                        <p>Insights into medical queries and medication searches</p>
+                    </div>
+
+                    <div class="table-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-pills"></i>
+                                <span>Medicine Search Statistics</span>
+                            </div>
+                            <div class="table-controls">
+                                <div class="search-box">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" id="medicineFilter" placeholder="Filter by medicine name..." 
+                                           onkeyup="filterMedicineTable(this.value)">
+                                </div>
+                                <button class="btn-icon" onclick="refreshMedicineSearchTable()" title="Refresh">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button class="btn-icon" onclick="showMedicineDetails()" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn-icon" onclick="exportTable('medicineSearchTable', 'medicine_searches')" title="Export">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="medicineSearchTable" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Medicine</th>
+                                        <th>Search Count</th>
+                                        <th>Unique Users</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="medicineSearchTableBody">
+                                    <tr><td colspan="4" class="loading">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p>Loading analytics data...</p>
+            </div>
+        </div>
+
+        <!-- Medicine Details Modal -->
+        <div id="medicineModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalMedicineName">Medicine Details</h3>
+                    <button class="modal-close" onclick="closeMedicineModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="medicine-stats">
+                        <div class="stat">
+                            <span class="value" id="modalSearchCount">-</span>
+                            <span class="label">Total Searches</span>
+                        </div>
+                    </div>
+                    <div class="users-list">
+                        <h4>Users who searched for this medicine:</h4>
+                        <div id="medicineUsersList" class="users-grid">
+                            <!-- Users will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Structure Modal -->
+        <div id="dbStructureModal" class="modal">
+            <div class="modal-content modal-large">
+                <div class="modal-header">
+                    <h3><i class="fas fa-database"></i> Database Structure</h3>
+                    <button class="modal-close" onclick="closeDbStructureModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="db-structure-content" id="dbStructureContent">
+                        <!-- Database structure will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Queries Modal -->
+        <div id="sampleQueriesModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-lightbulb"></i> Sample Queries</h3>
+                    <button class="modal-close" onclick="closeSampleQueriesModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Click on any query below to use it:</p>
+                    <div class="sample-queries-list" id="sampleQueriesList">
+                        <!-- Sample queries will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script>
+        // Navigation functionality
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('collapsed');
+        }
+
+        // Section navigation
+        document.addEventListener('DOMContentLoaded', function() {
+            const navItems = document.querySelectorAll('.nav-item');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            navItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Remove active class from all nav items and sections
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    contentSections.forEach(section => section.classList.remove('active'));
+                    
+                    // Add active class to clicked nav item
+                    this.classList.add('active');
+                    
+                    // Show corresponding section
+                    const sectionId = this.dataset.section + '-section';
+                    document.getElementById(sectionId).classList.add('active');
+                    
+                    // Update breadcrumb
+                    const breadcrumb = document.querySelector('.breadcrumb-item');
+                    breadcrumb.textContent = this.querySelector('span').textContent;
+                });
+            });
+        });
+
+        // Export dashboard functionality
+        function exportDashboard() {
+            const timestamp = new Date().toISOString().split('T')[0];
+            const filename = `medglance_dashboard_${timestamp}.json`;
+            
+            const dashboardData = {
+                exported_at: new Date().toISOString(),
+                kpis: {
+                    weekly_active_users: document.getElementById('weekly-active-users').textContent,
+                    avg_queries_per_user: document.getElementById('avg-queries-per-user').textContent,
+                    medicine_searches: document.getElementById('medicine-searches').textContent,
+                    avg_response_time: document.getElementById('avg-response-time').textContent
+                },
+                session_metrics: {
+                    total_sessions: document.getElementById('total-sessions').textContent,
+                    active_sessions: document.getElementById('active-sessions').textContent,
+                    avg_session_length: document.getElementById('avg-session-length').textContent,
+                    engagement_rate: document.getElementById('session-engagement-rate').textContent
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(dashboardData, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            
+            showNotification('Dashboard data exported successfully!', 'success');
+        }
+    </script>
+</body>
+</html>

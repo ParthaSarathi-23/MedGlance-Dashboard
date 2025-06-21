@@ -1,0 +1,22 @@
+runtime: python39
+env: standard
+
+env_variables:
+  FLASK_ENV: production
+  GEMINI_API_KEY: "AIzaSyBGfq4wnrWPJqv_kNMFTVsnCnECYDk51Jk"
+  FIREBASE_PROJECT_ID: "medglance-a9c63"
+  FIREBASE_SERVICE_ACCOUNT_KEY: "serviceAccountKey.json"
+  SECRET_KEY: "medical_dashboard_secret_key_2024"
+  AUTO_REFRESH_INTERVAL: "300000"
+  MAX_RECORDS_PER_TABLE: "1000"
+  LOG_LEVEL: "INFO"
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 10
+  target_cpu_utilization: 0.6
+
+resources:
+  cpu: 1
+  memory_gb: 1
+  disk_size_gb: 10

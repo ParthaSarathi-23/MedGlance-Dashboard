@@ -1,0 +1,49 @@
+{
+  "users": {
+    "fields": {
+      "created_at": "DatetimeWithNanoseconds",
+      "contact_type": "str",
+      "age": "int",
+      "date_of_birth": "str",
+      "is_active": "bool",
+      "login_count": "int",
+      "email_verified": "bool",
+      "oauth_id": "str",
+      "first_name": "str",
+      "photo_url": "str",
+      "display_name": "str",
+      "profile_complete": "bool",
+      "user_id": "str",
+      "gender": "str",
+      "oauth_provider": "str",
+      "contact": "str",
+      "last_login": "DatetimeWithNanoseconds",
+      "last_name": "str"
+    },
+    "subcollections": {
+      "chats": {
+        "fields": {
+          "created_at": "DatetimeWithNanoseconds",
+          "title": "str",
+          "user_id": "str",
+          "chat_id": "str",
+          "message_count": "int",
+          "last_updated": "DatetimeWithNanoseconds"
+        },
+        "subcollections": {
+          "conversations": {
+            "fields": {
+              "conversation_id": "str",
+              "image_url": "NoneType",
+              "user_message": "str",
+              "timestamp": "DatetimeWithNanoseconds",
+              "message_order": "DatetimeWithNanoseconds",
+              "bot_response": "str"
+            },
+            "subcollections": {}
+          }
+        }
+      }
+    }
+  }
+}

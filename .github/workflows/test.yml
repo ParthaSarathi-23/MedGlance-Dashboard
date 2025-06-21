@@ -1,0 +1,189 @@
+name: Test and Validate
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 black isort pytest pytest-cov bandit
+
+    - name: Run Black (code formatting check)
+      run: |
+        black --check --diff .
+      continue-on-error: true
+
+    - name: Run isort (import sorting check)
+      run: |
+        isort --check-only --diff .
+      continue-on-error: true
+
+    - name: Run flake8 (linting)
+      run: |
+        flake8 --max-line-length=100 --extend-ignore=E203,W503 .
+      continue-on-error: true
+
+    - name: Run syntax checks
+      run: |
+        python -m py_compile app.py
+        python -m py_compile query_handler.py
+
+    - name: Security check with bandit
+      run: |
+        bandit -r . -f json -o bandit-report.json || echo "Bandit scan completed"
+        if [ -f bandit-report.json ]; then
+          echo "Security scan results:"
+          cat bandit-report.json | jq '.results[]? | {filename: .filename, test_name: .test_name, issue_severity: .issue_severity, issue_text: .issue_text}'
+        fi
+      continue-on-error: true
+
+    - name: Test imports and basic functionality
+      run: |
+        python -c "
+        try:
+            import flask
+            import firebase_admin
+            print('✓ All major dependencies can be imported')
+        except ImportError as e:
+            print(f'✗ Import error: {e}')
+            exit(1)
+        "
+
+    - name: Check environment variables template
+      run: |
+        if [ ! -f .env ]; then
+          echo "✗ .env file not found"
+          exit 1
+        fi
+        echo "✓ Environment file exists"
+
+    - name: Validate Docker configuration
+      run: |
+        if [ ! -f Dockerfile ]; then
+          echo "✗ Dockerfile not found"
+          exit 1
+        fi
+        echo "✓ Dockerfile exists"
+        
+        # Check if Dockerfile has required components
+        if ! grep -q "FROM python:" Dockerfile; then
+          echo "✗ Dockerfile doesn't specify Python base image"
+          exit 1
+        fi
+        echo "✓ Dockerfile appears valid"
+
+    - name: Validate Google Cloud configuration
+      run: |
+        if [ ! -f app.yaml ]; then
+          echo "✗ app.yaml not found"
+          exit 1
+        fi
+        echo "✓ app.yaml exists"
+
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-python-${{ matrix.python-version }}
+        path: |
+          bandit-report.json
+        retention-days: 30
+
+  docker-build-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image (test only)
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: medical-dashboard:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test Docker image
+      run: |
+        # Create a mock service account key for testing
+        echo '{"type": "service_account", "project_id": "test"}' > serviceAccountKey.json
+        
+        # Run container and test if it starts
+        docker run -d --name test-container \
+          -e FLASK_ENV=testing \
+          -e GEMINI_API_KEY=test_key \
+          -e FIREBASE_PROJECT_ID=test_project \
+          -p 8080:8080 \
+          medical-dashboard:test
+        
+        # Wait a bit for the container to start
+        sleep 10
+        
+        # Check if container is running
+        if docker ps | grep test-container; then
+          echo "✓ Docker container started successfully"
+        else
+          echo "✗ Docker container failed to start"
+          docker logs test-container
+          exit 1
+        fi
+        
+        # Clean up
+        docker stop test-container
+        docker rm test-container
+        rm serviceAccountKey.json
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'

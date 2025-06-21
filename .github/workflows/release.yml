@@ -1,0 +1,200 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  SERVICE_NAME: medical-dashboard
+  REGION: us-central1
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for changelog generation
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        echo "## 🚀 What's New" > changelog.md
+        echo "" >> changelog.md
+        
+        # Get commits since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        if [ -n "$LAST_TAG" ]; then
+          echo "### 📋 Changes since $LAST_TAG" >> changelog.md
+          git log $LAST_TAG..HEAD --oneline --pretty=format:"- %s" >> changelog.md
+        else
+          echo "### 📋 Initial Release" >> changelog.md
+          echo "- Initial release of Medical Dashboard" >> changelog.md
+          echo "- Flask-based medical analytics dashboard" >> changelog.md
+          echo "- Firebase Firestore integration" >> changelog.md
+          echo "- Google Gemini AI integration" >> changelog.md
+          echo "- Real-time data visualization" >> changelog.md
+          echo "- Natural language query support" >> changelog.md
+        fi
+        
+        echo "" >> changelog.md
+        echo "## 🛠️ Installation" >> changelog.md
+        echo "" >> changelog.md
+        echo "### Quick Start" >> changelog.md
+        echo "\`\`\`bash" >> changelog.md
+        echo "git clone https://github.com/${{ github.repository }}.git" >> changelog.md
+        echo "cd medical-dashboard" >> changelog.md
+        echo "./deploy.sh setup-local" >> changelog.md
+        echo "\`\`\`" >> changelog.md
+        echo "" >> changelog.md
+        echo "### Docker" >> changelog.md
+        echo "\`\`\`bash" >> changelog.md
+        echo "docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}" >> changelog.md
+        echo "\`\`\`" >> changelog.md
+        echo "" >> changelog.md
+        echo "## 📊 Features" >> changelog.md
+        echo "" >> changelog.md
+        echo "- 📈 Real-time analytics dashboard" >> changelog.md
+        echo "- 🔍 Natural language database queries" >> changelog.md
+        echo "- 💊 Medicine search analytics" >> changelog.md
+        echo "- 👥 User engagement metrics" >> changelog.md
+        echo "- 📱 Responsive design" >> changelog.md
+        echo "- ☁️ Cloud-native deployment" >> changelog.md
+        echo "" >> changelog.md
+        echo "## 🔧 Technical Stack" >> changelog.md
+        echo "" >> changelog.md
+        echo "- **Backend**: Flask (Python)" >> changelog.md
+        echo "- **Database**: Firebase Firestore" >> changelog.md
+        echo "- **AI**: Google Gemini API" >> changelog.md
+        echo "- **Deployment**: Google Cloud Run/App Engine" >> changelog.md
+        echo "- **CI/CD**: GitHub Actions" >> changelog.md
+
+    - name: Build Docker image for release
+      run: |
+        docker build -t ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }} .
+        docker build -t ghcr.io/${{ github.repository }}:latest .
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Push Docker images
+      run: |
+        docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+        docker push ghcr.io/${{ github.repository }}:latest
+
+    - name: Create deployment package
+      run: |
+        # Create a deployment package with essential files
+        mkdir -p release-package
+        cp -r templates static requirements.txt app.py query_handler.py release-package/
+        cp Dockerfile docker-compose.yml app.yaml cloudbuild.yaml release-package/
+        cp .env.example release-package/
+        cp deploy.sh deploy.bat release-package/
+        cp README.md release-package/
+        
+        # Create deployment instructions
+        cat > release-package/DEPLOYMENT.md << 'EOF'
+        # Deployment Instructions
+        
+        ## Quick Deploy to Google Cloud
+        
+        1. Set up Google Cloud project and enable APIs
+        2. Configure GitHub secrets (see README.md)
+        3. Push to main branch or use manual deployment
+        
+        ## Manual Deployment
+        
+        ```bash
+        # Linux/Mac
+        ./deploy.sh deploy-run
+        
+        # Windows
+        deploy.bat deploy-run
+        ```
+        
+        ## Local Development
+        
+        ```bash
+        # Linux/Mac
+        ./deploy.sh setup-local
+        
+        # Windows
+        deploy.bat setup-local
+        ```
+        
+        See README.md for detailed instructions.
+        EOF
+        
+        # Create archive
+        tar -czf medical-dashboard-${{ steps.version.outputs.version }}.tar.gz -C release-package .
+        zip -r medical-dashboard-${{ steps.version.outputs.version }}.zip release-package/
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: Medical Dashboard ${{ steps.version.outputs.version }}
+        body_path: changelog.md
+        draft: false
+        prerelease: false
+        files: |
+          medical-dashboard-${{ steps.version.outputs.version }}.tar.gz
+          medical-dashboard-${{ steps.version.outputs.version }}.zip
+        generate_release_notes: true
+
+    - name: Deploy release to production
+      if: startsWith(steps.version.outputs.version, 'v') && !contains(steps.version.outputs.version, 'beta') && !contains(steps.version.outputs.version, 'alpha')
+      run: |
+        echo "🚀 Deploying release ${{ steps.version.outputs.version }} to production"
+        # This would trigger the main deployment workflow
+        # For now, we'll just create a deployment event
+        
+    - name: Update Docker Hub description
+      uses: peter-evans/dockerhub-description@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        repository: ${{ github.repository }}
+        short-description: "Medical Analytics Dashboard with AI-powered insights"
+        readme-filepath: ./README.md
+      continue-on-error: true
+
+    - name: Notify deployment
+      run: |
+        echo "✅ Release ${{ steps.version.outputs.version }} created successfully!"
+        echo "📦 Docker images pushed to GHCR"
+        echo "📋 Release notes generated"
+        echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}"
