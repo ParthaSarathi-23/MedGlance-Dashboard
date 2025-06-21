@@ -81,7 +81,7 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker build -t gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ github.sha }} .
+        docker build --platform linux/amd64 -t gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ github.sha }} .
 
     - name: Push Docker image to GCR
       run: |
