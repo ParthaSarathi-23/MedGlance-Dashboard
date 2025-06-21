@@ -45,6 +45,7 @@ jobs:
       with:
         name: security-report
         path: security-report.json
+
   deploy:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     needs: test
@@ -53,48 +54,73 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-  
+
+    # Authenticate to Google Cloud FIRST
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
-  
+
+    # Set up Cloud SDK with explicit project
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
       with:
         project_id: ${{ secrets.GCP_PROJECT_ID }}
-  
-    - name: Configure Docker for GCR
-      run: gcloud auth configure-docker
-  
-    - name: Create service account key file
-      run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > serviceAccountKey.json
-  
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
 
-    # Add a step to validate and clean the project ID
+    # Validate and clean project ID
     - name: Validate Project ID
       id: project-id
       run: |
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
-        # Remove any whitespace
         PROJECT_ID=$(echo "$PROJECT_ID" | tr -d '[:space:]')
-        # Validate format (lowercase letters, numbers, hyphens only)
         if [[ ! "$PROJECT_ID" =~ ^[a-z0-9-]+$ ]]; then
           echo "Invalid project ID format: $PROJECT_ID"
           exit 1
         fi
         echo "project-id=$PROJECT_ID" >> $GITHUB_OUTPUT
         echo "Using project ID: $PROJECT_ID"
-  
+
+    # Enable required APIs
+    - name: Enable required APIs
+      run: |
+        gcloud services enable containerregistry.googleapis.com
+        gcloud services enable run.googleapis.com
+        gcloud services enable cloudbuild.googleapis.com
+
+    # Configure Docker authentication for GCR
+    - name: Configure Docker for GCR
+      run: |
+        gcloud auth configure-docker gcr.io
+
+    # Create service account key file
+    - name: Create service account key file
+      run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > serviceAccountKey.json
+
+    # Set up Docker Buildx
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    # Login to GCR using docker/login-action for better auth
+    - name: Login to Google Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: gcr.io
+        username: _json_key
+        password: ${{ secrets.GCP_SA_KEY }}
+
+    # Build and push Docker image
     - name: Build and push Docker image
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
         push: true
-        tags: gcr.io/${{ steps.project-id.outputs.project-id }}/medical-dashboard:${{ github.sha }}
-  
+        tags: |
+          gcr.io/${{ steps.project-id.outputs.project-id }}/medical-dashboard:latest
+          gcr.io/${{ steps.project-id.outputs.project-id }}/medical-dashboard:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    # Deploy to Cloud Run
     - name: Deploy to Cloud Run
       run: |
         gcloud run deploy medical-dashboard \
@@ -105,12 +131,16 @@ jobs:
           --memory 1Gi \
           --cpu 1 \
           --timeout 300 \
+          --max-instances 10 \
           --set-env-vars="FLASK_ENV=production,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }},FIREBASE_SERVICE_ACCOUNT_KEY=serviceAccountKey.json,SECRET_KEY=${{ secrets.SECRET_KEY }}"
-  
+
+    # Get Cloud Run URL
     - name: Get Cloud Run URL
       run: |
-        gcloud run services describe medical-dashboard --platform managed --region us-central1 --format 'value(status.url)'
-  
+        URL=$(gcloud run services describe medical-dashboard --platform managed --region us-central1 --format 'value(status.url)')
+        echo "Service URL: $URL"
+
+    # Clean up
     - name: Clean up
       if: always()
       run: rm -f serviceAccountKey.json
