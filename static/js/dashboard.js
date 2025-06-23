@@ -1875,3 +1875,483 @@ window.addEventListener('resize', function() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Medical Dashboard v2.0 Initialized');
 });
+
+/* =================================================================
+   UNFOUND DRUGS ANALYTICS - NEW FUNCTIONALITY
+================================================================= */
+
+// Update unfound drugs overview cards
+function updateUnfoundDrugsOverview() {
+    const { unfoundDrugs } = dashboardData;
+    
+    console.log('📊 Updating unfound drugs overview...');
+    console.log('Unfound drugs data:', unfoundDrugs);
+    
+    if (!unfoundDrugs) {
+        console.warn('⚠️  No unfound drugs data available');
+        return;
+    }
+    
+    // Update overview cards
+    if (document.getElementById('total-unfound-drugs')) {
+        document.getElementById('total-unfound-drugs').textContent = unfoundDrugs.total_unfound_drugs || 0;
+    }
+    if (document.getElementById('total-search-frequency')) {
+        document.getElementById('total-search-frequency').textContent = unfoundDrugs.total_search_frequency || 0;
+    }
+    if (document.getElementById('recent-unfound-searches')) {
+        document.getElementById('recent-unfound-searches').textContent = unfoundDrugs.recent_searches_count || 0;
+    }
+    if (document.getElementById('combination-drugs-count')) {
+        document.getElementById('combination-drugs-count').textContent = unfoundDrugs.combination_drugs_count || 0;
+    }
+    
+    // Update chart insights
+    if (document.getElementById('avg-search-frequency')) {
+        document.getElementById('avg-search-frequency').textContent = unfoundDrugs.average_search_frequency || 0;
+    }
+    if (document.getElementById('unique-tablet-names')) {
+        document.getElementById('unique-tablet-names').textContent = unfoundDrugs.unique_tablet_names || 0;
+    }
+}
+
+// Update Unfound Drugs Table
+function updateUnfoundDrugsTable() {
+    const { unfoundDrugs } = dashboardData;
+    const tbody = document.getElementById('unfoundDrugsTableBody');
+    
+    if (!tbody) {
+        console.warn('⚠️  Unfound drugs table body not found');
+        return;
+    }
+    
+    if (!unfoundDrugs || !unfoundDrugs.top_unfound_drugs || unfoundDrugs.top_unfound_drugs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">No unfound drugs data found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = unfoundDrugs.top_unfound_drugs.map((drug, index) => {
+        const frequency = drug.frequency || 0;
+        let frequencyClass = 'frequency-low';
+        
+        if (frequency > 10) {
+            frequencyClass = 'frequency-high';
+        } else if (frequency > 5) {
+            frequencyClass = 'frequency-medium';
+        }
+        
+        return `
+            <tr data-drug-index="${index}">
+                <td title="${drug.tablet_name || 'Unknown'}">${drug.tablet_name || 'Unknown'}</td>
+                <td title="${drug.combination_name || 'N/A'}">${drug.combination_name || 'N/A'}</td>
+                <td><span class="${frequencyClass}" title="${frequency} searches">${frequency}</span></td>
+                <td title="${drug.last_searched || 'Never'}">${drug.last_searched || 'Never'}</td>
+                <td title="${drug.chat_count || 0} chats">${drug.chat_count || 0}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Initialize Top Unfound Drugs Chart
+function initializeTopUnfoundDrugsChart() {
+    console.log('💊 Initializing top unfound drugs chart...');
+    const { unfoundDrugs } = dashboardData;
+    const colors = getThemeColors();
+    
+    const ctx = document.getElementById('topUnfoundDrugsChart');
+    if (!ctx) return;
+    
+    if (charts.topUnfoundDrugs) {
+        charts.topUnfoundDrugs.destroy();
+    }
+    
+    // Check if we have data
+    if (!unfoundDrugs || !unfoundDrugs.top_unfound_drugs || unfoundDrugs.top_unfound_drugs.length === 0) {
+        console.warn('⚠️  No top unfound drugs data available');
+        showNoDataChart('topUnfoundDrugsChart', 'No unfound drugs data available');
+        return;
+    }
+    
+    // Take top 10 for the chart
+    const topDrugs = unfoundDrugs.top_unfound_drugs.slice(0, 10);
+    const labels = topDrugs.map(drug => drug.tablet_name || 'Unknown');
+    const data = topDrugs.map(drug => drug.frequency || 0);
+    
+    charts.topUnfoundDrugs = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Search Frequency',
+                data: data,
+                backgroundColor: colors.chartColors ? colors.chartColors[0] : '#ef4444',
+                borderColor: colors.borderColor || '#dc2626',
+                borderWidth: 2,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: {
+                        color: colors.gridColor || '#e2e8f0'
+                    },
+                    ticks: {
+                        color: colors.textSecondary || '#64748b'
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: colors.textSecondary || '#64748b',
+                        maxRotation: 0,
+                        callback: function(value, index) {
+                            const label = this.getLabelForValue(value);
+                            return label.length > 15 ? label.substring(0, 15) + '...' : label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initialize Unfound Drugs Timeline Chart
+function initializeUnfoundDrugsTimelineChart() {
+    console.log('📈 Initializing unfound drugs timeline chart...');
+    const { unfoundDrugsTimeline } = dashboardData;
+    const colors = getThemeColors();
+    
+    const ctx = document.getElementById('unfoundDrugsTimelineChart');
+    if (!ctx) return;
+    
+    if (charts.unfoundDrugsTimeline) {
+        charts.unfoundDrugsTimeline.destroy();
+    }
+    
+    // Check if we have data
+    if (!unfoundDrugsTimeline || !unfoundDrugsTimeline.daily_timeline || unfoundDrugsTimeline.daily_timeline.length === 0) {
+        console.warn('⚠️  No unfound drugs timeline data available');
+        showNoDataChart('unfoundDrugsTimelineChart', 'No timeline data available');
+        return;
+    }
+    
+    const labels = unfoundDrugsTimeline.daily_timeline.map(item => {
+        const date = new Date(item.date);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    
+    const data = unfoundDrugsTimeline.daily_timeline.map(item => item.searches);
+    
+    charts.unfoundDrugsTimeline = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Daily Searches',
+                data: data,
+                borderColor: colors.error || '#ef4444',
+                backgroundColor: colors.gradientStart || 'rgba(239, 68, 68, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: colors.error || '#ef4444',
+                pointBorderColor: colors.background || '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: colors.gridColor || '#e2e8f0'
+                    },
+                    ticks: {
+                        color: colors.textSecondary || '#64748b'
+                    }
+                },
+                x: {
+                    grid: {
+                        color: colors.gridColor || '#e2e8f0'
+                    },
+                    ticks: {
+                        color: colors.textSecondary || '#64748b'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Update peak search day insight
+    if (unfoundDrugsTimeline.peak_search_day && Array.isArray(unfoundDrugsTimeline.peak_search_day)) {
+        const peakDayElement = document.getElementById('peak-search-day');
+        if (peakDayElement) {
+            peakDayElement.textContent = unfoundDrugsTimeline.peak_search_day[0] || 'N/A';
+        }
+    }
+}
+
+// Initialize Search Frequency Distribution Chart
+function initializeSearchFrequencyDistributionChart() {
+    console.log('🥧 Initializing search frequency distribution chart...');
+    const { unfoundDrugs } = dashboardData;
+    const colors = getThemeColors();
+    
+    const ctx = document.getElementById('searchFrequencyDistributionChart');
+    if (!ctx) return;
+    
+    if (charts.searchFrequencyDistribution) {
+        charts.searchFrequencyDistribution.destroy();
+    }
+    
+    // Check if we have data
+    if (!unfoundDrugs || !unfoundDrugs.search_frequency_distribution) {
+        console.warn('⚠️  No search frequency distribution data available');
+        showNoDataChart('searchFrequencyDistributionChart', 'No frequency data available');
+        return;
+    }
+    
+    const labels = Object.keys(unfoundDrugs.search_frequency_distribution);
+    const data = Object.values(unfoundDrugs.search_frequency_distribution);
+    
+    if (labels.length === 0) {
+        showNoDataChart('searchFrequencyDistributionChart', 'No frequency distribution data');
+        return;
+    }
+    
+    charts.searchFrequencyDistribution = new Chart(ctx.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.chartColors ? colors.chartColors.slice(0, labels.length) : [
+                    '#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6'
+                ],
+                borderColor: colors.background || '#ffffff',
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        color: colors.textSecondary || '#64748b',
+                        usePointStyle: true
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initialize Health Check Status Chart
+function initializeHealthCheckStatusChart() {
+    console.log('💓 Initializing health check status chart...');
+    const { healthCheck } = dashboardData;
+    const colors = getThemeColors();
+    
+    const ctx = document.getElementById('healthCheckStatusChart');
+    if (!ctx) return;
+    
+    if (charts.healthCheckStatus) {
+        charts.healthCheckStatus.destroy();
+    }
+    
+    // Check if we have data
+    if (!healthCheck || !healthCheck.status_distribution) {
+        console.warn('⚠️  No health check status data available');
+        showNoDataChart('healthCheckStatusChart', 'No health check data available');
+        return;
+    }
+    
+    const labels = Object.keys(healthCheck.status_distribution);
+    const data = Object.values(healthCheck.status_distribution);
+    
+    if (labels.length === 0) {
+        showNoDataChart('healthCheckStatusChart', 'No health check status data');
+        return;
+    }
+    
+    charts.healthCheckStatus = new Chart(ctx.getContext('2d'), {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.chartColors ? colors.chartColors.slice(0, labels.length) : [
+                    '#22c55e', '#ef4444', '#f59e0b', '#3b82f6'
+                ],
+                borderColor: colors.background || '#ffffff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        color: colors.textSecondary || '#64748b'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Update health check insights
+    const totalElement = document.getElementById('total-health-checks');
+    const statusElement = document.getElementById('most-common-status');
+    
+    if (totalElement) {
+        totalElement.textContent = healthCheck.total_health_checks || 0;
+    }
+    if (statusElement) {
+        statusElement.textContent = healthCheck.most_common_status || 'N/A';
+    }
+}
+
+// Refresh function for unfound drugs data
+async function refreshUnfoundDrugsTable() {
+    console.log('🔄 Refreshing unfound drugs table...');
+    
+    try {
+        const response = await fetch('/api/unfound-drugs');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        dashboardData.unfoundDrugs = data;
+        
+        updateUnfoundDrugsOverview();
+        updateUnfoundDrugsTable();
+        
+        console.log('✅ Unfound drugs data refreshed successfully');
+        showNotification('Unfound drugs data updated!', 'success', 2000);
+        
+    } catch (error) {
+        console.error('❌ Failed to refresh unfound drugs data:', error);
+        showNotification('Failed to refresh unfound drugs data', 'error');
+    }
+}
+
+// Enhanced loadAllData function to include new endpoints
+if (typeof loadAllData !== 'undefined') {
+    const originalLoadAllData = loadAllData;
+    loadAllData = async function() {
+        const endpoints = [
+            'weekly-users',
+            'user-queries', 
+            'medicine-search',
+            'daily-engagement',
+            'demographics',
+            'chat-sessions',
+            'peak-hours',
+            'retention',
+            'response-times',
+            'content-categories',
+            'age-category-queries',
+            'unfound-drugs',
+            'unfound-drugs-timeline',
+            'health-check'
+        ];
+
+        const promises = endpoints.map(endpoint => 
+            fetch(`/api/${endpoint}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch ${endpoint}: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .catch(error => {
+                    console.error(`Error loading ${endpoint}:`, error);
+                    return {};
+                })
+        );
+
+        const results = await Promise.all(promises);
+        
+        // Store data in global object
+        dashboardData = {
+            weeklyUsers: results[0],
+            userQueries: results[1],
+            medicineSearch: results[2],
+            dailyEngagement: results[3],
+            demographics: results[4],
+            chatSessions: results[5],
+            peakHours: results[6],
+            retention: results[7],
+            responseTimes: results[8],
+            contentCategories: results[9],
+            ageCategoryQueries: results[10],
+            unfoundDrugs: results[11],
+            unfoundDrugsTimeline: results[12],
+            healthCheck: results[13]
+        };
+
+        // Update UI components
+        if (typeof updateQuickStats === 'function') updateQuickStats();
+        updateUnfoundDrugsOverview();
+        if (typeof updateTables === 'function') updateTables();
+        if (typeof updateMetrics === 'function') updateMetrics();
+    };
+}
+
+// Enhanced initializeCharts function to include new charts
+if (typeof initializeCharts !== 'undefined') {
+    const originalInitializeCharts = initializeCharts;
+    initializeCharts = function() {
+        // Call original charts
+        if (originalInitializeCharts) originalInitializeCharts();
+        
+        // Initialize new charts
+        initializeTopUnfoundDrugsChart();
+        initializeUnfoundDrugsTimelineChart();
+        initializeSearchFrequencyDistributionChart();
+        initializeHealthCheckStatusChart();
+    };
+}
+
+// Enhanced updateTables function to include unfound drugs table
+if (typeof updateTables !== 'undefined') {
+    const originalUpdateTables = updateTables;
+    updateTables = function() {
+        // Call original update
+        if (originalUpdateTables) originalUpdateTables();
+        
+        // Update new table
+        updateUnfoundDrugsTable();
+    };
+}
+
+/* =================================================================
+   END UNFOUND DRUGS ANALYTICS
+================================================================= */

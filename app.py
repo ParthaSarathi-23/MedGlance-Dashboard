@@ -820,6 +820,224 @@ class MedicalAnalytics:
                 'unique_users_analyzed': 0,
                 'error': str(e)
             }
+    
+    def get_unfound_drugs_analytics(self):
+        """
+        Comprehensive analysis of unfound drugs data
+        """
+        try:
+            unfound_drugs_ref = self.db.collection('unfound_drugs')
+            unfound_drugs = unfound_drugs_ref.stream()
+            
+            drug_stats = []
+            total_searches = 0
+            unique_tablets = set()
+            combination_drugs = 0
+            search_frequency_distribution = defaultdict(int)
+            recent_searches = []
+            chat_distribution = defaultdict(int)
+            
+            # Analyze each unfound drug document
+            for drug_doc in unfound_drugs:
+                drug_data = drug_doc.to_dict()
+                
+                tablet_name = drug_data.get('tablet_name', '')
+                combination_name = drug_data.get('combination_name', '')
+                frequency = drug_data.get('frequency', 0)
+                last_searched = drug_data.get('last_searched')
+                first_searched = drug_data.get('first_searched')
+                chat_names = drug_data.get('chat_names', [])
+                
+                # Track unique tablets
+                if tablet_name:
+                    unique_tablets.add(tablet_name)
+                
+                # Count combination drugs
+                if combination_name:
+                    combination_drugs += 1
+                
+                # Total search frequency
+                total_searches += frequency
+                
+                # Frequency distribution
+                if frequency <= 1:
+                    search_frequency_distribution['1 search'] += 1
+                elif frequency <= 5:
+                    search_frequency_distribution['2-5 searches'] += 1
+                elif frequency <= 10:
+                    search_frequency_distribution['6-10 searches'] += 1
+                else:
+                    search_frequency_distribution['10+ searches'] += 1
+                
+                # Chat distribution
+                for chat_name in chat_names:
+                    chat_distribution[chat_name] += 1
+                
+                # Convert timestamps
+                if last_searched:
+                    last_searched = self._ensure_timezone_aware(last_searched)
+                if first_searched:
+                    first_searched = self._ensure_timezone_aware(first_searched)
+                
+                drug_stats.append({
+                    'tablet_name': tablet_name,
+                    'combination_name': combination_name,
+                    'frequency': frequency,
+                    'last_searched': last_searched.strftime('%Y-%m-%d %H:%M:%S') if last_searched else None,
+                    'first_searched': first_searched.strftime('%Y-%m-%d %H:%M:%S') if first_searched else None,
+                    'chat_count': len(chat_names),
+                    'chat_names': chat_names
+                })
+            
+            # Sort by frequency for top drugs
+            drug_stats.sort(key=lambda x: x['frequency'], reverse=True)
+            
+            # Get recent searches (last 7 days)
+            seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+            recent_drugs = [d for d in drug_stats if d['last_searched'] and 
+                           datetime.strptime(d['last_searched'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc) >= seven_days_ago]
+            
+            # Calculate averages
+            avg_frequency = total_searches / len(drug_stats) if drug_stats else 0
+            avg_chats_per_drug = sum(d['chat_count'] for d in drug_stats) / len(drug_stats) if drug_stats else 0
+            
+            return {
+                'total_unfound_drugs': len(drug_stats),
+                'total_search_frequency': total_searches,
+                'unique_tablet_names': len(unique_tablets),
+                'combination_drugs_count': combination_drugs,
+                'average_search_frequency': round(avg_frequency, 2),
+                'average_chats_per_drug': round(avg_chats_per_drug, 2),
+                'recent_searches_count': len(recent_drugs),
+                'top_unfound_drugs': drug_stats[:20],  # Top 20
+                'search_frequency_distribution': dict(search_frequency_distribution),
+                'recent_searches': recent_drugs[:10],  # Recent 10
+                'top_chat_sources': dict(sorted(chat_distribution.items(), key=lambda x: x[1], reverse=True)[:10])
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting unfound drugs analytics: {e}")
+            return {
+                'total_unfound_drugs': 0,
+                'total_search_frequency': 0,
+                'unique_tablet_names': 0,
+                'combination_drugs_count': 0,
+                'average_search_frequency': 0,
+                'average_chats_per_drug': 0,
+                'recent_searches_count': 0,
+                'top_unfound_drugs': [],
+                'search_frequency_distribution': {},
+                'recent_searches': [],
+                'top_chat_sources': {},
+                'error': str(e)
+            }
+    
+    def get_unfound_drugs_timeline(self):
+        """
+        Get timeline analysis of unfound drug searches
+        """
+        try:
+            unfound_drugs_ref = self.db.collection('unfound_drugs')
+            unfound_drugs = unfound_drugs_ref.stream()
+            
+            # Track searches by date
+            daily_searches = defaultdict(int)
+            monthly_trends = defaultdict(int)
+            
+            for drug_doc in unfound_drugs:
+                drug_data = drug_doc.to_dict()
+                last_searched = drug_data.get('last_searched')
+                frequency = drug_data.get('frequency', 0)
+                
+                if last_searched:
+                    last_searched = self._ensure_timezone_aware(last_searched)
+                    date_key = last_searched.strftime('%Y-%m-%d')
+                    month_key = last_searched.strftime('%Y-%m')
+                    
+                    daily_searches[date_key] += frequency
+                    monthly_trends[month_key] += frequency
+            
+            # Convert to sorted lists for charting
+            daily_data = []
+            for date_str in sorted(daily_searches.keys()):
+                daily_data.append({
+                    'date': date_str,
+                    'searches': daily_searches[date_str]
+                })
+            
+            monthly_data = []
+            for month_str in sorted(monthly_trends.keys()):
+                monthly_data.append({
+                    'month': month_str,
+                    'searches': monthly_trends[month_str]
+                })
+            
+            return {
+                'daily_timeline': daily_data[-30:],  # Last 30 days
+                'monthly_timeline': monthly_data[-12:],  # Last 12 months
+                'total_search_days': len(daily_searches),
+                'peak_search_day': max(daily_searches.items(), key=lambda x: x[1]) if daily_searches else ('None', 0)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting unfound drugs timeline: {e}")
+            return {
+                'daily_timeline': [],
+                'monthly_timeline': [],
+                'total_search_days': 0,
+                'peak_search_day': ('None', 0),
+                'error': str(e)
+            }
+    
+    def get_health_check_analytics(self):
+        """
+        Analyze health check data
+        """
+        try:
+            health_checks_ref = self.db.collection('health_check')
+            health_checks = health_checks_ref.stream()
+            
+            status_distribution = defaultdict(int)
+            timeline_data = defaultdict(int)
+            total_checks = 0
+            
+            for check_doc in health_checks:
+                check_data = check_doc.to_dict()
+                status = check_data.get('status', 'unknown')
+                timestamp = check_data.get('timestamp')
+                
+                total_checks += 1
+                status_distribution[status] += 1
+                
+                if timestamp:
+                    timestamp = self._ensure_timezone_aware(timestamp)
+                    date_key = timestamp.strftime('%Y-%m-%d')
+                    timeline_data[date_key] += 1
+            
+            # Convert timeline to list
+            timeline_list = []
+            for date_str in sorted(timeline_data.keys()):
+                timeline_list.append({
+                    'date': date_str,
+                    'checks': timeline_data[date_str]
+                })
+            
+            return {
+                'total_health_checks': total_checks,
+                'status_distribution': dict(status_distribution),
+                'timeline': timeline_list[-30:],  # Last 30 days
+                'most_common_status': max(status_distribution.items(), key=lambda x: x[1])[0] if status_distribution else 'None'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting health check analytics: {e}")
+            return {
+                'total_health_checks': 0,
+                'status_distribution': {},
+                'timeline': [],
+                'most_common_status': 'None',
+                'error': str(e)
+            }
 
 # Initialize analytics and query handler
 analytics = MedicalAnalytics(db) if db else None
@@ -1099,6 +1317,33 @@ def api_refresh_status():
         logger.error(f"Error getting refresh status: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/unfound-drugs')
+def api_unfound_drugs():
+    """API endpoint for unfound drugs analytics"""
+    if not analytics:
+        return jsonify({'error': 'Database not initialized'}), 500
+    
+    data = analytics.get_unfound_drugs_analytics()
+    return jsonify(data)
+
+@app.route('/api/unfound-drugs-timeline')
+def api_unfound_drugs_timeline():
+    """API endpoint for unfound drugs timeline"""
+    if not analytics:
+        return jsonify({'error': 'Database not initialized'}), 500
+    
+    data = analytics.get_unfound_drugs_timeline()
+    return jsonify(data)
+
+@app.route('/api/health-check')
+def api_health_check():
+    """API endpoint for health check analytics"""
+    if not analytics:
+        return jsonify({'error': 'Database not initialized'}), 500
+    
+    data = analytics.get_health_check_analytics()
+    return jsonify(data)
+
 @app.route('/api/refresh-all')
 def api_refresh_all():
     """API endpoint to refresh all dashboard data"""
@@ -1118,7 +1363,10 @@ def api_refresh_all():
             'retention': analytics.get_user_retention_analysis(),
             'responseTimes': analytics.get_response_time_analysis(),
             'contentCategories': analytics.get_content_category_analysis(),
-            'ageCategoryQueries': analytics.get_age_category_query_analysis()
+            'ageCategoryQueries': analytics.get_age_category_query_analysis(),
+            'unfoundDrugs': analytics.get_unfound_drugs_analytics(),
+            'unfoundDrugsTimeline': analytics.get_unfound_drugs_timeline(),
+            'healthCheck': analytics.get_health_check_analytics()
         }
         
         return jsonify({

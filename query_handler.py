@@ -26,46 +26,55 @@ class DatabaseQueryHandler:
         
         # Database structure information
         self.db_structure = """
-        Database Structure:
+        Database Structure (Updated):
         
+        📂 Collection: health_check
+          🔸 Field: status (type: str)
+          🔸 Field: timestamp (type: DatetimeWithNanoseconds)
+        📂 Collection: unfound_drugs
+          🔸 Field: tablet_name (type: str)
+          🔸 Field: combination_name (type: str)
+          🔸 Field: last_searched (type: DatetimeWithNanoseconds)
+          🔸 Field: first_searched (type: DatetimeWithNanoseconds)
+          🔸 Field: frequency (type: int)
+          🔸 Field: chat_names (type: array)
         📂 Collection: users
           🔸 Field: created_at (type: DatetimeWithNanoseconds)
           🔸 Field: contact_type (type: str)
-          🔸 Field: age (type: int)
-          🔸 Field: date_of_birth (type: str)
+          🔸 Field: age (type: NoneType)
+          🔸 Field: date_of_birth (type: NoneType)
+          🔸 Field: last_updated (type: DatetimeWithNanoseconds)
           🔸 Field: is_active (type: bool)
           🔸 Field: login_count (type: int)
-          🔸 Field: email_verified (type: bool)
-          🔸 Field: oauth_id (type: str)
           🔸 Field: first_name (type: str)
-          🔸 Field: photo_url (type: str)
           🔸 Field: last_login (type: DatetimeWithNanoseconds)
           🔸 Field: profile_complete (type: bool)
           🔸 Field: user_id (type: str)
+          🔸 Field: gender (type: str)
           🔸 Field: contact (type: str)
-          🔸 Field: oauth_provider (type: str)
           🔸 Field: display_name (type: str)
+          🔸 Field: preferred_language (type: str)
           🔸 Field: last_name (type: str)
-            📂 Collection: chats (subcollection of users)
-              🔸 Field: created_at (type: DatetimeWithNanoseconds)
-              🔸 Field: title (type: str)
-              🔸 Field: user_id (type: str)
-              🔸 Field: chat_id (type: str)
-              🔸 Field: message_count (type: int)
-              🔸 Field: last_updated (type: DatetimeWithNanoseconds)
-                📂 Collection: conversations (subcollection of chats)
-                  🔸 Field: conversation_id (type: str)
-                  🔸 Field: image_url (type: NoneType)
-                  🔸 Field: user_message (type: str)
-                  🔸 Field: timestamp (type: DatetimeWithNanoseconds)
-                  🔸 Field: message_order (type: DatetimeWithNanoseconds)
-                  🔸 Field: bot_response (type: str)
+        📂 Collection: chats
+          🔸 Field: created_at (type: DatetimeWithNanoseconds)
+          🔸 Field: title (type: str)
+          🔸 Field: user_id (type: str)
+          🔸 Field: chat_id (type: str)
+          🔸 Field: message_count (type: int)
+          🔸 Field: last_updated (type: DatetimeWithNanoseconds)
+        📂 Collection: conversations
+          🔸 Field: message_order (type: DatetimeWithNanoseconds)
+          🔸 Field: image_url (type: NoneType)
+          🔸 Field: conversation_id (type: str)
+          🔸 Field: bot_response (type: str)
+          🔸 Field: user_message (type: str)
+          🔸 Field: bot_response_tamil (type: str)
+          🔸 Field: timestamp (type: DatetimeWithNanoseconds)
         
         Firebase Firestore Python SDK Usage:
         - Access collections: db.collection('collection_name')
         - Query documents: collection.where('field', '==', value)
         - Get all documents: collection.stream()
-        - Access subcollections: doc.collection('subcollection_name')
         - Collection group queries: db.collection_group('collection_name')
         - Date filtering: collection.where('timestamp', '>=', datetime_obj)
         """
@@ -442,14 +451,18 @@ class DatabaseQueryHandler:
         Return sample queries that users can try
         """
         return [
-            "Show me the top 10 most active users by message count",
+            "Show me the top 10 most frequently searched unfound drugs",
             "How many users registered in the last month?",
             "What are the most common words in user messages?",
-            "Show me users who haven't logged in for more than 30 days",
+            "Show me unfound drugs searched more than 5 times",
             "What's the average number of messages per chat session?",
-            "Show me the distribution of users by age group",
+            "Show me the distribution of users by gender",
             "Which users have incomplete profiles?",
             "What's the hourly distribution of conversations?",
-            "Show me users who only used the bot once",
-            "What percentage of users have verified emails?"
+            "Show unfound drugs by their search frequency",
+            "What are the latest unfound drug searches?",
+            "Show me health check status distribution",
+            "List all tablet names in unfound drugs",
+            "Show users who speak Tamil (bot_response_tamil is not null)",
+            "Which unfound drugs have combination names?"
         ]

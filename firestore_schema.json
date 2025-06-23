@@ -1,23 +1,39 @@
 {
+  "_health_check": {
+    "fields": {
+      "status": "str",
+      "timestamp": "DatetimeWithNanoseconds"
+    },
+    "subcollections": {}
+  },
+  "unfound_drugs": {
+    "fields": {
+      "tablet_name": "str",
+      "combination_name": "str",
+      "last_searched": "DatetimeWithNanoseconds",
+      "first_searched": "DatetimeWithNanoseconds",
+      "frequency": "int",
+      "chat_names": "array"
+    },
+    "subcollections": {}
+  },
   "users": {
     "fields": {
       "created_at": "DatetimeWithNanoseconds",
       "contact_type": "str",
-      "age": "int",
-      "date_of_birth": "str",
+      "age": "NoneType",
+      "date_of_birth": "NoneType",
+      "last_updated": "DatetimeWithNanoseconds",
       "is_active": "bool",
       "login_count": "int",
-      "email_verified": "bool",
-      "oauth_id": "str",
       "first_name": "str",
-      "photo_url": "str",
-      "display_name": "str",
+      "last_login": "DatetimeWithNanoseconds",
       "profile_complete": "bool",
       "user_id": "str",
       "gender": "str",
-      "oauth_provider": "str",
       "contact": "str",
-      "last_login": "DatetimeWithNanoseconds",
+      "display_name": "str",
+      "preferred_language": "str",
       "last_name": "str"
     },
     "subcollections": {
@@ -33,12 +49,13 @@
         "subcollections": {
           "conversations": {
             "fields": {
-              "conversation_id": "str",
-              "image_url": "NoneType",
-              "user_message": "str",
-              "timestamp": "DatetimeWithNanoseconds",
               "message_order": "DatetimeWithNanoseconds",
-              "bot_response": "str"
+              "image_url": "NoneType",
+              "conversation_id": "str",
+              "bot_response": "str",
+              "user_message": "str",
+              "bot_response_tamil": "str",
+              "timestamp": "DatetimeWithNanoseconds"
             },
             "subcollections": {}
           }
